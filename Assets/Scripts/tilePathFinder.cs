@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -5,6 +6,20 @@ using UnityEngine.Tilemaps;
 
 public class tilePathFinder : MonoBehaviour
 {
+    public struct SortableByDistance : IComparable // Based off of https://forum.unity.com/threads/solved-sort-array-objects-by-distance.811056/
+    {
+        private Vector3Int point;
+        public SortableByDistance(Vector3Int center)
+        {
+            point = center;
+        }
+
+        public int Compare(SortableByDistance other)
+        {
+            return (int)Math.Sqrt(Math.Pow(other.point.x - point.x, 2) + Math.Pow(other.point.y - point.y, 2) + Math.Pow(other.point.z - point.z, 2));
+        }
+    }
+
     public Vector2 setTarget;
     public GameObject tilesObject;
 
@@ -17,12 +32,8 @@ public class tilePathFinder : MonoBehaviour
     void Start()
     {
         tilemap = tilesObject.GetComponent<Tilemap>();
-        Debug.Log(tilemap.origin.x);
-        Debug.Log(tilemap.origin.y);
-        Debug.Log(tilemap.origin.z);
 
-        Debug.Log(tilemap.GetTile(new Vector3Int(-15, -6, 0)));
-        Debug.Log(tilemap.GetTile(tilemap.WorldToCell(new Vector3(0, -1, 0))));
+        FindPath(transform.position, setTarget);
     }
 
     void Update()
@@ -30,15 +41,39 @@ public class tilePathFinder : MonoBehaviour
         
     }
 
-    private void FindPath(Vector2 target)
+    private void FindPath(Vector2 start, Vector2 target)
     {
-        
+        Hashtable processed = new Hashtable();
+        FindPathSub(start, target, processed);
     }
-    private void FindPathSub(Vector2 target, Hashtable processed)
+    private void FindPathSub(Vector2 currentPosition, Vector2 target, Hashtable processed)
     {
         string key = target.x + "," + target.y;
-        if ((bool)processed[key]) return;
+        if ((string)processed[key] == "1") return;
         processed[key] = 1;
 
+        Vector3Int center = tilemap.WorldToCell((Vector3)currentPosition);
+        Vector3Int[] directions = {};
+
+        Vector3Int direction = center + Vector3Int.left;
+        if (GetTileName(direction) == null)
+        {
+            directions[directions.Length - 1] = direction;
+        }
+        direction = center + Vector3Int.right;
+        if (GetTileName(direction) == null)
+        {
+            directions[directions.Length - 1] = direction;
+        }
+
+        if (directions.Length == 0) return;
+        SortableByDistance comparer = new SortableByDistance(tilemap.WorldToCell((Vector3)target));
+        Array.Sort(directions, comparer);
+    }
+    private string GetTileName(Vector3Int tileCoord)
+    {
+        TileBase tile = tilemap.GetTile(tileCoord);
+        if (tile) return tile.name;
+        return null;
     }
 }
