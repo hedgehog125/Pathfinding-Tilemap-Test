@@ -47,7 +47,7 @@ public class tilePathFinder : MonoBehaviour {
     private Tilemap tilemap;
     private Rigidbody2D rb;
 	private int pathIndex;
-	private int pathDelay = 200;
+	public int pathDelay;
 
     void Awake() {
         rb = GetComponent<Rigidbody2D>();
@@ -59,10 +59,10 @@ public class tilePathFinder : MonoBehaviour {
 		activePath = FindPath(transform.position, setTarget);
     }
 
-    void Update() {
+    void FixedUpdate() {
 		if (activePath != null) {
-			if (pathDelay == 0) {
-				pathDelay = 200;
+			if (pathDelay == 3 * 50) {
+				pathDelay = 0;
 				pathIndex++;
 				if (pathIndex == activePath.Count) {
 					pathIndex = 0;
@@ -70,7 +70,7 @@ public class tilePathFinder : MonoBehaviour {
 				transform.position = activePath[pathIndex] - new Vector2(0.5f, 0.5f);
 			}
 			else {
-				pathDelay--;
+				pathDelay++;
 			}
 		}
     }
@@ -86,10 +86,10 @@ public class tilePathFinder : MonoBehaviour {
 	private List<Vector2Int> FindPath(Vector2Int start, Vector2Int target) {
         Hashtable processed = new Hashtable();
 		List<Vector2Int> path = new List<Vector2Int>();
-		if (! FindPathSub(start, target, processed, path, 0)) return null;
+		if (! FindPathSub(start, target, processed, path)) return null;
 		return path;
     }
-    private bool FindPathSub(Vector2Int currentPosition2, Vector2Int target2, Hashtable processed, List<Vector2Int> path, int jump) {
+    private bool FindPathSub(Vector2Int currentPosition2, Vector2Int target2, Hashtable processed, List<Vector2Int> path) {
 		Vector3Int currentPosition3 = tilemap.WorldToCell(new Vector3(currentPosition2.x - 1, currentPosition2.y - 1));
 		Vector3Int target3 = tilemap.WorldToCell(new Vector3(target2.x - 1, target2.y - 1, 0));
 
@@ -107,36 +107,30 @@ public class tilePathFinder : MonoBehaviour {
 
 
 		int index = 0;
-		int jumpIndex = -1;
-		Vector2Int direction2 = Vector2Int.down;
-		if (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2)) && (jump == 0 || jump == maxJumpHeight)) { // In air, fall to the ground
-			while (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
-				direction2 += Vector2Int.down;
-				if (Vector3Int.Distance(currentPosition3 + (Vector3Int)direction2, target3) > maxSearchDistance) return false;
-			}
-			directions[index] = currentPosition2 + (direction2 + Vector2Int.up);
+		Vector2Int direction2 = Vector2Int.left;
+		if (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
+			directions[index] = currentPosition2 + direction2;
 			index++;
 		}
-		else {
-			direction2 = Vector2Int.left;
-			if (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
-				directions[index] = currentPosition2 + direction2;
-				index++;
-			}
-			direction2 = Vector2Int.right;
-			if (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
-				directions[index] = currentPosition2 + direction2;
-				index++;
+		direction2 = Vector2Int.right;
+		if (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
+			directions[index] = currentPosition2 + direction2;
+			index++;
+		}
+
+		direction2 = Vector2Int.up;
+		if (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
+			int i = 1;
+			while (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
+				direction2 += Vector2Int.up;
+				i++;
+				if (i > maxJumpHeight) break;
 			}
 
-			direction2 = Vector2Int.up;
-			if (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2)) && jump < maxJumpHeight) {
-				directions[index] = currentPosition2 + direction2;
-				jumpIndex = index;
-				index++;
-			}
+			directions[index] = currentPosition2 + direction2;
+			index++;
 		}
-		
+
 
 		if (index == 0) return false;
         SortByClosest comparer = new SortByClosest(target2, index, directions);
@@ -147,8 +141,12 @@ public class tilePathFinder : MonoBehaviour {
 		for (int i = 0; i < index; i++) {
 			int originalIndex = indexes[i];
 			Vector2Int currentDirection = directions[originalIndex];
+			if (isPassable(GetTileName((Vector3Int)currentDirection + Vector3Int.down))) {
+				currentDirection += Vector2Int.down;
+			}
+
 			List<Vector2Int> newPath = new List<Vector2Int>();
-			bool output = FindPathSub(currentDirection, target2, processed, newPath, originalIndex == jumpIndex? jump + 1 : jump);
+			bool output = FindPathSub(currentDirection, target2, processed, newPath);
 			if (output) {
 				foreach (Vector2Int item in newPath) {
 					path.Add(item);
