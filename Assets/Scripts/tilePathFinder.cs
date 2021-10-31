@@ -3,63 +3,75 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
+using System.Linq;
 
-public class tilePathFinder : MonoBehaviour
-{
-    private class SortByClosest : IComparer<Vector2> // Based off of https://forum.unity.com/threads/solved-sort-array-objects-by-distance.811056/
-    {
-        private Vector2 point;
-        public SortByClosest(Vector2 center)
-        {
-            point = center;
-        }
+public class tilePathFinder : MonoBehaviour {
+	private class SortByClosest : IComparer<int> // Based off of https://forum.unity.com/threads/solved-sort-array-objects-by-distance.811056/
+	{
+		private Vector2Int point;
+		private Vector2Int[] values;
+		private int length;
+		public SortByClosest(Vector2Int center, int givenLength, Vector2Int[] givenValues) {
+			point = center;
+			length = givenLength;
+			values = givenValues;
+		}
 
-        public int Compare(Vector2 first, Vector2 second)
-        {
-			return Vector2.Distance(point, first).CompareTo(Vector2.Distance(point, second));
-			/*
-			return (
-				(int)Mathf.Abs(point.x - first.x) - (int)Mathf.Abs(point.x - second.x)
-				+ ((int)Mathf.Abs(point.y - first.y) - (int)Mathf.Abs(point.y - second.y) / 2) // Divide by 2 to discourage jumping
-			);
-			*/
-        }
-    }
+		public int Compare(int firstIndex, int secondIndex) {
+			int countOutOfBounds = (firstIndex >= length ? 1 : 0) + (secondIndex >= length ? 1 : 0);
+			if (countOutOfBounds != 0) {
+				if (countOutOfBounds == 1) {
+					if (firstIndex < length) { // In bounds
+						return -1;
+					}
+					if (secondIndex < length) {
+						return 1;
+					}
+				}
+				return 0;
+			}
+			Vector2Int first = values[firstIndex];
+			Vector2Int second = values[secondIndex];
+			return Vector2Int.Distance(point, first).CompareTo(Vector2Int.Distance(point, second));
+		}
+	}
 
-    public Vector2 setTarget;
-    public GameObject tilesObject;
+	public Vector2 setTarget;
+	public GameObject tilesObject;
 	public int maxSearchDistance;
 	public int maxJumpHeight;
+	public List<string> passableTiles; 
 
-	private List<Vector2> activePath;
+	private Hashtable passableTilesIndex = new Hashtable();
+	public List<Vector2Int> activePath;
     private Tilemap tilemap;
     private Rigidbody2D rb;
 	private int pathIndex;
 	private int pathDelay = 200;
 
-    void Awake()
-    {
+    void Awake() {
         rb = GetComponent<Rigidbody2D>();
     }
-    void Start()
-    {
+    void Start()  {
         tilemap = tilesObject.GetComponent<Tilemap>();
 
+		IndexPassables();
 		activePath = FindPath(transform.position, setTarget);
     }
 
-    void Update()
-    {
-        if (pathDelay == 0) {
-			pathDelay = 200;
-			pathIndex++;
-			if (pathIndex == activePath.Count) {
-				pathIndex = 0;
+    void Update() {
+		if (activePath != null) {
+			if (pathDelay == 0) {
+				pathDelay = 200;
+				pathIndex++;
+				if (pathIndex == activePath.Count) {
+					pathIndex = 0;
+				}
+				transform.position = activePath[pathIndex] - new Vector2(0.5f, 0.5f);
 			}
-			transform.position = activePath[pathIndex] - new Vector2(0.5f, 0.5f);
-		}
-		else {
-			pathDelay--;
+			else {
+				pathDelay--;
+			}
 		}
     }
 
@@ -67,70 +79,78 @@ public class tilePathFinder : MonoBehaviour
 
 	}
 
-    private List<Vector2> FindPath(Vector2 start, Vector2 target)
-    {
+	private List<Vector2Int> FindPath(Vector3 start, Vector2 target) {
+		return FindPath(new Vector2Int((int)start.x, (int)start.y), new Vector2Int((int)target.x, (int)target.y));
+	}
+
+	private List<Vector2Int> FindPath(Vector2Int start, Vector2Int target) {
         Hashtable processed = new Hashtable();
-		List<Vector2> path = new List<Vector2>();
-		if (! FindPathSub(new Vector2((int)(start.x + 0.5f), (int)(start.y + 0.5f)), new Vector2((int)target.x, (int)target.y), processed, path, 0, 0)) return null;
+		List<Vector2Int> path = new List<Vector2Int>();
+		if (! FindPathSub(start, target, processed, path, 0)) return null;
 		return path;
     }
-    private bool FindPathSub(Vector2 currentPosition, Vector2 target, Hashtable processed, List<Vector2> path, int jump, int debug)
-    {
-		Debug.Log(debug);
-		debug++;
-		//Debug.Log(tilemap.WorldToCell(currentPosition));
-		//Debug.Log(currentPosition);
-		string key = currentPosition.x + "," + currentPosition.y;
+    private bool FindPathSub(Vector2Int currentPosition2, Vector2Int target2, Hashtable processed, List<Vector2Int> path, int jump) {
+		Vector3Int currentPosition3 = tilemap.WorldToCell(new Vector3(currentPosition2.x - 1, currentPosition2.y - 1));
+		Vector3Int target3 = tilemap.WorldToCell(new Vector3(target2.x - 1, target2.y - 1, 0));
+
+		string key = currentPosition2.x + "," + currentPosition2.y;
         if (processed[key] != null) return false;
         processed[key] = 1;
-		if (Vector3Int.Distance(tilemap.WorldToCell(currentPosition), tilemap.WorldToCell(target)) > maxSearchDistance) return false;
+		if (Vector3Int.Distance(currentPosition3, target3) > maxSearchDistance) return false;
 
-		Vector2[] directions = new Vector2[4];
-		Vector3Int center = tilemap.WorldToCell(currentPosition);
-		path.Add(new Vector2(center.x, center.y));
+		Vector2Int[] directions = new Vector2Int[4];
+		path.Add(currentPosition2);
 		if (
-			(int)currentPosition.x == (int)target.x
-			&& (int)currentPosition.y == (int)target.y
+			currentPosition2.x == target2.x
+			&& currentPosition2.y == target2.y
 		) return true;
 
-		int index = 0;
 
-		Vector2Int direction = Vector2Int.left;
-        if (GetTileName(center + (Vector3Int)direction) == null)
-        {
-            directions[index] = currentPosition + direction;
-			index++;
-        }
-		direction = Vector2Int.right;
-		if (GetTileName(center + (Vector3Int)direction) == null)
-		{
-			directions[index] = currentPosition + direction;
-			index++;
-		}
-		direction = Vector2Int.down;
-		if (GetTileName(center + (Vector3Int)direction) == null) {
-			directions[index] = currentPosition + direction;
-			index++;
-		}
-		direction = Vector2Int.up;
+		int index = 0;
 		int jumpIndex = -1;
-		if (GetTileName(center + (Vector3Int)direction) == null && jump < maxJumpHeight) {
-			directions[index] = currentPosition + direction;
-			jumpIndex = index;
+		Vector2Int direction2 = Vector2Int.down;
+		if (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2)) && (jump == 0 || jump == maxJumpHeight)) { // In air, fall to the ground
+			while (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
+				direction2 += Vector2Int.down;
+				if (Vector3Int.Distance(currentPosition3 + (Vector3Int)direction2, target3) > maxSearchDistance) return false;
+			}
+			directions[index] = currentPosition2 + (direction2 + Vector2Int.up);
 			index++;
 		}
+		else {
+			direction2 = Vector2Int.left;
+			if (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
+				directions[index] = currentPosition2 + direction2;
+				index++;
+			}
+			direction2 = Vector2Int.right;
+			if (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
+				directions[index] = currentPosition2 + direction2;
+				index++;
+			}
+
+			direction2 = Vector2Int.up;
+			if (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2)) && jump < maxJumpHeight) {
+				directions[index] = currentPosition2 + direction2;
+				jumpIndex = index;
+				index++;
+			}
+		}
+		
 
 		if (index == 0) return false;
-		Vector3Int target3 = tilemap.WorldToCell(target);
-        SortByClosest comparer = new SortByClosest(new Vector2(target3.x, target3.y));
-        Array.Sort(directions, comparer);
+        SortByClosest comparer = new SortByClosest(target2, index, directions);
+		int[] indexes = Enumerable.Range(0, directions.Length).ToArray();
+        Array.Sort(indexes, comparer);
 
+		// Blank vectors are still in here but are all at the end
 		for (int i = 0; i < index; i++) {
-			Vector2 currentDirection = directions[i];
-			List<Vector2> newPath = new List<Vector2>();
-			bool output = FindPathSub(currentDirection, target, processed, newPath, i == jumpIndex? jump + 1 : jump, debug);
+			int originalIndex = indexes[i];
+			Vector2Int currentDirection = directions[originalIndex];
+			List<Vector2Int> newPath = new List<Vector2Int>();
+			bool output = FindPathSub(currentDirection, target2, processed, newPath, originalIndex == jumpIndex? jump + 1 : jump);
 			if (output) {
-				foreach (Vector2 item in newPath) {
+				foreach (Vector2Int item in newPath) {
 					path.Add(item);
 				}
 				return true;
@@ -138,10 +158,20 @@ public class tilePathFinder : MonoBehaviour
 		}
 		return false;
     }
-    private string GetTileName(Vector3Int tileCoord)
-    {
+    private string GetTileName(Vector3Int tileCoord) {
         TileBase tile = tilemap.GetTile(tileCoord);
         if (tile) return tile.name;
         return null;
     }
+
+	private void IndexPassables() {
+		foreach (string i in passableTiles) {
+			passableTilesIndex[i] = "1";
+		}
+	}
+	private bool isPassable(string tileName) {
+		if (tileName == null) return true;
+		if ((string)passableTilesIndex[tileName] == "1") return true;
+		return false;
+	}
 }

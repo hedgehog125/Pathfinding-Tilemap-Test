@@ -14,7 +14,7 @@ public class playerMovement : MonoBehaviour {
 		move = movementValue.Get<Vector2>();
 	}
 
-    void LateUpdate() {
-		rb.AddForce(new Vector2(move.x * 1, 0));
+	void FixedUpdate() {
+		rb.AddForce(new Vector2(move.x * 2, 0));
     }
 }
