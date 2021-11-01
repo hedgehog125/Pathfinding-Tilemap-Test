@@ -83,8 +83,15 @@ public class tilePathFinder : MonoBehaviour {
 		if (falling) {
 			currentPosition2 += Vector2Int.down;
 			currentPosition3 += Vector3Int.down;
-		}
 
+			if (
+				currentPosition2.x == target2.x
+				&& currentPosition2.y == target2.y
+			) {
+				path.Add(currentPosition2);
+				return true;
+			}
+		}
 
 		int index = 0;
 		int jumpIndex = -1;
@@ -140,20 +147,20 @@ public class tilePathFinder : MonoBehaviour {
 		// Shortest route in the short term
 		List<Vector2Int> newPath = new List<Vector2Int>();
 		outputs[0] = FindPathSub(directions[minIndex], target2, processed, newPath, GetDistanceTravelledAway(distanceTravelledAway, currentPosition2, target2, directions[minIndex]));
-		if (processed.Count > maxTilesSearch) return false;
 		newPaths[0] = newPath;
 		pathCount++;
 
 		// Possibly shorter overall, jumping can require getting further away initially
-		if (jumpIndex != -1 && minIndex != jumpIndex) {
-			newPath = new List<Vector2Int>();
-			outputs[1] = FindPathSub(directions[jumpIndex], target2, processed, newPath, GetDistanceTravelledAway(distanceTravelledAway, currentPosition2, target2, directions[jumpIndex]));
-			if (processed.Count > maxTilesSearch) return false;
-			newPaths[1] = newPath;
-			pathCount++;
+		if (processed.Count <= maxTilesSearch) {
+			if (jumpIndex != -1 && minIndex != jumpIndex) {
+				newPath = new List<Vector2Int>();
+				outputs[1] = FindPathSub(directions[jumpIndex], target2, processed, newPath, GetDistanceTravelledAway(distanceTravelledAway, currentPosition2, target2, directions[jumpIndex]));
+				newPaths[1] = newPath;
+				pathCount++;
+			}
 		}
 		
-		min = 0;
+		min = Mathf.Infinity;
 		minIndex = -1;
 		for (int i = 0; i < pathCount; i++) {
 			int value = newPaths[i].Count;
