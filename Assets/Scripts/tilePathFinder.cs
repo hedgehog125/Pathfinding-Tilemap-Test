@@ -47,7 +47,7 @@ public class tilePathFinder : MonoBehaviour {
     private Tilemap tilemap;
     private Rigidbody2D rb;
 	private int pathIndex;
-	public int pathDelay;
+	private int pathDelay;
 
     void Awake() {
         rb = GetComponent<Rigidbody2D>();
@@ -61,7 +61,7 @@ public class tilePathFinder : MonoBehaviour {
 
     void FixedUpdate() {
 		if (activePath != null) {
-			if (pathDelay == 1 * 50) {
+			if (pathDelay == 25) {
 				pathDelay = 0;
 				pathIndex++;
 				if (pathIndex == activePath.Count) {
@@ -106,6 +106,12 @@ public class tilePathFinder : MonoBehaviour {
 			&& currentPosition2.y == target2.y
 		) return true;
 
+		bool falling = isPassable(GetTileName(currentPosition3 + Vector3Int.down));
+		if (falling) {
+			currentPosition2 += Vector2Int.down;
+			currentPosition3 += Vector3Int.down;
+		}
+
 
 		int index = 0;
 		Vector2Int direction2 = Vector2Int.left;
@@ -119,7 +125,7 @@ public class tilePathFinder : MonoBehaviour {
 			index++;
 		}
 
-		if (isPassable(GetTileName(currentPosition3 + Vector3Int.down))) { // Can just fall
+		if (falling) { // Can just fall
 			directions[index] = currentPosition2;
 			index++;
 		}
@@ -148,9 +154,6 @@ public class tilePathFinder : MonoBehaviour {
 		for (int i = 0; i < index; i++) {
 			int originalIndex = indexes[i];
 			Vector2Int currentDirection = directions[originalIndex];
-			if (isPassable(GetTileName(currentPosition3 + Vector3Int.down))) {
-				currentDirection += Vector2Int.down;
-			}
 
 			List<Vector2Int> newPath = new List<Vector2Int>();
 			bool output = FindPathSub(currentDirection, target2, processed, newPath);

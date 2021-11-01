@@ -339,14 +339,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff7415da55b78514cb00fa297349b4a9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  setTarget: {x: -8, y: -2}
+  setTarget: {x: 5, y: -1}
   tilesObject: {fileID: 476789936}
   maxSearchDistance: 50
   maxTilesSearch: 200
   maxJumpHeight: 5
   passableTiles: []
   activePath: []
-  pathDelay: 0
 --- !u!1 &476789936
 GameObject:
   m_ObjectHideFlags: 0
