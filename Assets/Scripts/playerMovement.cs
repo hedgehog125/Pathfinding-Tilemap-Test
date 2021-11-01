@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 public class playerMovement : MonoBehaviour {
+	public float moveSpeed;
+
 	private Vector2 move;
 	private Rigidbody2D rb;
 	void Awake() {
@@ -15,6 +17,6 @@ public class playerMovement : MonoBehaviour {
 	}
 
 	void FixedUpdate() {
-		rb.AddForce(new Vector2(move.x * 2, 0));
+		rb.AddForce(new Vector2(move.x * moveSpeed, 0));
     }
 }

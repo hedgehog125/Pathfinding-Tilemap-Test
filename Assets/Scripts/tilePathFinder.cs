@@ -6,8 +6,7 @@ using UnityEngine.Tilemaps;
 using System.Linq;
 
 public class tilePathFinder : MonoBehaviour {
-	private class SortByClosest : IComparer<int> // Based off of https://forum.unity.com/threads/solved-sort-array-objects-by-distance.811056/
-	{
+	private class SortByClosest : IComparer<int> { // Based off of https://forum.unity.com/threads/solved-sort-array-objects-by-distance.811056/
 		private Vector2Int point;
 		private Vector2Int[] values;
 		private int length;
@@ -39,6 +38,7 @@ public class tilePathFinder : MonoBehaviour {
 	public Vector2 setTarget;
 	public GameObject tilesObject;
 	public int maxSearchDistance;
+	public int maxTilesSearch;
 	public int maxJumpHeight;
 	public List<string> passableTiles; 
 
@@ -61,13 +61,13 @@ public class tilePathFinder : MonoBehaviour {
 
     void FixedUpdate() {
 		if (activePath != null) {
-			if (pathDelay == 3 * 50) {
+			if (pathDelay == 1 * 50) {
 				pathDelay = 0;
 				pathIndex++;
 				if (pathIndex == activePath.Count) {
 					pathIndex = 0;
 				}
-				transform.position = activePath[pathIndex] - new Vector2(0.5f, 0.5f);
+				transform.position = activePath[pathIndex] + new Vector2(0.5f, 0.5f);
 			}
 			else {
 				pathDelay++;
@@ -86,17 +86,18 @@ public class tilePathFinder : MonoBehaviour {
 	private List<Vector2Int> FindPath(Vector2Int start, Vector2Int target) {
         Hashtable processed = new Hashtable();
 		List<Vector2Int> path = new List<Vector2Int>();
-		if (! FindPathSub(start, target, processed, path)) return null;
-		return path;
+		if (FindPathSub(start - new Vector2Int(1, 1), target, processed, path)) return path;
+		return null;
     }
     private bool FindPathSub(Vector2Int currentPosition2, Vector2Int target2, Hashtable processed, List<Vector2Int> path) {
-		Vector3Int currentPosition3 = tilemap.WorldToCell(new Vector3(currentPosition2.x - 1, currentPosition2.y - 1));
-		Vector3Int target3 = tilemap.WorldToCell(new Vector3(target2.x - 1, target2.y - 1, 0));
+		Vector3Int currentPosition3 = tilemap.WorldToCell(new Vector3(currentPosition2.x, currentPosition2.y));
+		Vector3Int target3 = tilemap.WorldToCell(new Vector3(target2.x, target2.y));
 
 		string key = currentPosition2.x + "," + currentPosition2.y;
         if (processed[key] != null) return false;
         processed[key] = 1;
 		if (Vector3Int.Distance(currentPosition3, target3) > maxSearchDistance) return false;
+		if (processed.Count > maxTilesSearch) return false;
 
 		Vector2Int[] directions = new Vector2Int[4];
 		path.Add(currentPosition2);
@@ -118,17 +119,23 @@ public class tilePathFinder : MonoBehaviour {
 			index++;
 		}
 
-		direction2 = Vector2Int.up;
-		if (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
-			int i = 1;
-			while (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
-				direction2 += Vector2Int.up;
-				i++;
-				if (i > maxJumpHeight) break;
-			}
-
-			directions[index] = currentPosition2 + direction2;
+		if (isPassable(GetTileName(currentPosition3 + Vector3Int.down))) { // Can just fall
+			directions[index] = currentPosition2;
 			index++;
+		}
+		else {
+			direction2 = Vector2Int.up;
+			if (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
+				int i = 1;
+				while (isPassable(GetTileName(currentPosition3 + (Vector3Int)direction2))) {
+					direction2 += Vector2Int.up;
+					i++;
+					if (i > maxJumpHeight) break;
+				}
+
+				directions[index] = currentPosition2 + direction2;
+				index++;
+			}
 		}
 
 
@@ -141,7 +148,7 @@ public class tilePathFinder : MonoBehaviour {
 		for (int i = 0; i < index; i++) {
 			int originalIndex = indexes[i];
 			Vector2Int currentDirection = directions[originalIndex];
-			if (isPassable(GetTileName((Vector3Int)currentDirection + Vector3Int.down))) {
+			if (isPassable(GetTileName(currentPosition3 + Vector3Int.down))) {
 				currentDirection += Vector2Int.down;
 			}
 
@@ -153,6 +160,7 @@ public class tilePathFinder : MonoBehaviour {
 				}
 				return true;
 			}
+			if (processed.Count > maxTilesSearch) return false;
 		}
 		return false;
     }
