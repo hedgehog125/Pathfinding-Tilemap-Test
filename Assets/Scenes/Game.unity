@@ -345,7 +345,7 @@ MonoBehaviour:
   tilesObject: {fileID: 476789936}
   maxSearchDistance: 50
   maxAwaySearchDistance: 7
-  maxTilesSearch: 500
+  maxTilesSearch: 100
   maxJumpHeight: 5
   passableTiles: []
   actionTimes: 02000000020000000400000001000000
